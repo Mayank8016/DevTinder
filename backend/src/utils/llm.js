@@ -10,7 +10,7 @@ async function askBot(persona, messages, botId) {
     // zyadatar providers pehla message user ka maangte hain
     while (history.length && history[0].role === "assistant") history.shift();
 
-    // 2. System prompt = tumhara persona + fixed rules
+    // 2. System prompt = persona + fixed rules
     const system =
       persona +
       "\n\nRules: Tum ek AI ho, insaan hone ka dawa mat karo. Reply 3-4 lines se zyada nahi, Hinglish me.";
@@ -24,17 +24,19 @@ async function askBot(persona, messages, botId) {
       body: JSON.stringify({
         model: process.env.LLM_MODEL,
         messages: [{ role: "system", content: system }, ...history],
-        max_tokens: 300,
+        max_tokens: 1000,
       }),
-      signal: AbortSignal.timeout(20000), // 20 sec me jawab na aaye to fallback
+      signal: AbortSignal.timeout(60000), // 20 sec me jawab na aaye to fallback
     });
-    if (!res.ok) throw new Error(`OpenRouter ${res.status}`);
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`OpenRouter ${res.status}: ${body.slice(0, 500)}`);
+    }
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) throw new Error("Empty reply");
+    if (!text) throw new Error("Empty reply: " + JSON.stringify(data).slice(0, 500));
     return text;
-
-    throw new Error("LLM provider abhi connect nahi hua");
   } catch (err) {
     console.log("askBot error:", err.message);
     return FALLBACK;
